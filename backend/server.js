@@ -28,13 +28,13 @@ app.use("/api/gallery", galleryRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/contact", contactRoutes);
 
-// Serve frontend (for Render or production)
+// Serve frontend (for production)
 if (process.env.NODE_ENV === "production") {
   const frontendPath = path.join(__dirname, "../frontend/build");
   app.use(express.static(frontendPath));
 
-  // ✅ FIX: use '/*' instead of '*'
-  app.get("/*", (_, res) => {
+  // ✅ FIX: Use RegExp to catch all routes
+  app.get(/.*/, (_, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 } else {
@@ -43,6 +43,5 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// Start the server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
