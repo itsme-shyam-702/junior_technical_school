@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUser } from "@clerk/clerk-react";
+import { useUser, useAuth } from "@clerk/clerk-react"; // ✅ Added useAuth
 import Swal from "sweetalert2";
 import api from "../api/api"; // axios instance (baseURL already set)
 
 export default function Events() {
   const { user } = useUser();
+  const { getToken } = useAuth(); // ✅ Get the token here
   const userEmail = user?.primaryEmailAddress?.emailAddress || "";
   const isAdmin = userEmail === "sssshyam702@gmail.com";
 
@@ -29,18 +30,26 @@ export default function Events() {
     fetchDeletedEvents();
   }, []);
 
+  // ✅ Updated: now includes Clerk token
   const fetchEvents = async () => {
     try {
-      const res = await api.get("/events");
+      const token = await getToken();
+      const res = await api.get("/events", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setEvents(res.data);
     } catch (err) {
       console.error("fetchEvents error:", err);
     }
   };
 
+  // ✅ Updated: includes token for deleted events too
   const fetchDeletedEvents = async () => {
     try {
-      const res = await api.get("/events/deleted");
+      const token = await getToken();
+      const res = await api.get("/events/deleted", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setRecentlyDeleted(res.data);
     } catch (err) {
       console.error("fetchDeletedEvents error:", err);
