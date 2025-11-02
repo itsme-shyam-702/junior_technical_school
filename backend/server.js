@@ -16,20 +16,22 @@ connectDB();
 
 const app = express();
 
-// ✅ Allow JSON
+// ✅ Enable JSON parsing
 app.use(express.json());
 
-// ✅ CORS — allow all or specify domains
+// ✅ CORS setup (you can restrict origin later)
 app.use(
   cors({
-    origin: "*", // You can later restrict to your frontend domain
+    origin: "*",
     credentials: true,
   })
 );
 
-// ✅ Serve uploaded files
+// ✅ Resolve __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ✅ Serve uploaded static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ API routes
@@ -42,10 +44,11 @@ app.use("/api/contact", contactRoutes);
 const frontendPath = path.join(__dirname, "../frontend/build");
 app.use(express.static(frontendPath));
 
-// Serve index.html for all non-API routes
-app.get('/*', (req, res) => {
-  res.sendFile(path.resolve(__dirname, '../frontend/build', 'index.html'));
+// ✅ Fallback: serve index.html for any non-API routes
+app.use((req, res) => {
+  res.sendFile(path.resolve(frontendPath, "index.html"));
 });
 
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
