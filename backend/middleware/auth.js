@@ -1,23 +1,21 @@
 // backend/middleware/auth.js
-import { ClerkExpressWithAuth } from "@clerk/express";
-import { clerkClient } from "@clerk/clerk-sdk-node"; // ✅ use this for server-side user lookups
+import { ClerkExpressRequireAuth, clerkClient } from "@clerk/express";
 
-// ✅ Middleware to require authentication
-export const requireAuth = ClerkExpressWithAuth({
-  onError: (err, req, res, next) => {
+// ✅ Authentication middleware
+export const requireAuth = ClerkExpressRequireAuth({
+  onError: (err, req, res) => {
     console.error("Auth error:", err);
     res.status(401).json({ message: "Unauthorized" });
   },
 });
 
-// ✅ Custom role-based guard (for admins, etc.)
+// ✅ Role-based guard
 export const requireRole = (roles = []) => {
   return async (req, res, next) => {
     try {
       const userId = req.auth?.userId;
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-      // ✅ Get user role from Clerk
       const user = await clerkClient.users.getUser(userId);
       const userRole = user?.privateMetadata?.role || "visitor";
 
