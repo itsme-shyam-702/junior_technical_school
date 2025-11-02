@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2";
-import { useUser } from "@clerk/clerk-react"; // 👈 Import from Clerk
+import { useUser } from "@clerk/clerk-react";
 import api from "../api/gallery";
 
-// ✅ Toast instance
+// ✅ Toast configuration
 const Toast = Swal.mixin({
   toast: true,
   position: "bottom-end",
@@ -19,14 +19,14 @@ const Toast = Swal.mixin({
   },
 });
 
-// ✅ CHANGE: Dynamic backend base URL for Render deployment
-// This ensures your app automatically uses the correct API base
-// whether running locally or on Render (like in the Events page)
+// ✅ FIXED: Use CRA environment variable correctly
+// CRA uses process.env.REACT_APP_*, not import.meta.env
 const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://junior-technical-school-backend.onrender.com";
+  process.env.REACT_APP_API_URL ||
+  "https://junior-technical-school-ezx9.onrender.com/api";
 
 export default function Gallery() {
-  const { user } = useUser(); // 👈 Clerk user
+  const { user } = useUser();
   const [images, setImages] = useState([]);
   const [recentlyDeleted, setRecentlyDeleted] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -39,7 +39,7 @@ export default function Gallery() {
   });
 
   // ✅ Determine user roles
-  const userRole = user?.publicMetadata?.role; // Example: "admin" or "staff"
+  const userRole = user?.publicMetadata?.role;
   const isAdminOrStaff = userRole === "admin" || userRole === "staff";
 
   useEffect(() => {
@@ -193,7 +193,6 @@ export default function Gallery() {
             </p>
           </div>
 
-          {/* ✅ Only show these for Admin/Staff */}
           {isAdminOrStaff && (
             <div className="flex gap-3 mt-4 sm:mt-0">
               {selected.length > 0 && (
@@ -233,7 +232,7 @@ export default function Gallery() {
               }`}
               onClick={() => toggleSelect(img._id)}
             >
-              {/* ✅ CHANGE: Dynamic BASE_URL used here */}
+              {/* ✅ Use correct BASE_URL here */}
               <img
                 src={`${BASE_URL}${img.filePath}`}
                 alt={img.title}
@@ -246,7 +245,6 @@ export default function Gallery() {
                 )}
               </div>
 
-              {/* ✅ Delete button only for Admin/Staff */}
               {isAdminOrStaff && (
                 <button
                   onClick={(e) => {
@@ -329,7 +327,6 @@ export default function Gallery() {
           >
             {recentlyDeleted.map((img) => (
               <div key={img._id} className="relative flex-shrink-0 w-28 h-20">
-                {/* ✅ CHANGE: Dynamic BASE_URL here also */}
                 <img
                   src={`${BASE_URL}${img.filePath}`}
                   alt={img.title}
