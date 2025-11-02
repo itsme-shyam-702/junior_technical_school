@@ -43,8 +43,8 @@ const frontendPath = path.join(__dirname, "../frontend/build");
 app.use(express.static(frontendPath));
 
 // Serve index.html for all non-API routes
-app.get("*", (_, res) => {
-  res.sendFile(path.join(frontendPath, "index.html"));
+app.get('/*', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../frontend/build', 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;
