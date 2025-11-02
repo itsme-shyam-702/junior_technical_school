@@ -1,10 +1,11 @@
+// frontend/src/pages/Gallery.jsx
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2";
 import { useUser } from "@clerk/clerk-react";
 import api from "../api/gallery";
 
-// ✅ Toast configuration
+// ✅ Toast instance
 const Toast = Swal.mixin({
   toast: true,
   position: "bottom-end",
@@ -19,11 +20,24 @@ const Toast = Swal.mixin({
   },
 });
 
-// ✅ FIXED: Use CRA environment variable correctly
-// CRA uses process.env.REACT_APP_*, not import.meta.env
+// ✅ Use CRA env var (fallback to your deployed API)
 const BASE_URL =
-  process.env.REACT_APP_API_URL ||
+  (process.env.REACT_APP_API_URL &&
+    process.env.REACT_APP_API_URL.replace(/\/$/, "")) ||
   "https://junior-technical-school-ezx9.onrender.com/api";
+
+/**
+ * Helper: return full file URL.
+ * If filePath is already an absolute URL (starts with http),
+ * return as-is. Otherwise prefix with BASE_URL.
+ */
+const makeFileUrl = (filePath) => {
+  if (!filePath) return "";
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  // ensure leading slash
+  if (!filePath.startsWith("/")) filePath = "/" + filePath;
+  return `${BASE_URL}${filePath}`;
+};
 
 export default function Gallery() {
   const { user } = useUser();
@@ -37,24 +51,39 @@ export default function Gallery() {
     title: "",
     description: "",
   });
+  const [loading, setLoading] = useState(false);
 
-  // ✅ Determine user roles
+  // Determine user roles
   const userRole = user?.publicMetadata?.role;
   const isAdminOrStaff = userRole === "admin" || userRole === "staff";
 
   useEffect(() => {
     fetchImages();
     fetchDeletedImages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchImages = async () => {
-    const res = await api.getAll();
-    setImages(res.data);
+    setLoading(true);
+    try {
+      const res = await api.getAll(); // expected to call /api/gallery via ../api/gallery
+      setImages(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      console.error("fetchImages error:", err);
+      // show a gentle toast or alert (optional)
+      Toast.fire({ icon: "error", title: "Failed to load gallery" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchDeletedImages = async () => {
-    const res = await api.getDeleted();
-    setRecentlyDeleted(res.data);
+    try {
+      const res = await api.getDeleted();
+      setRecentlyDeleted(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      console.error("fetchDeletedImages error:", err);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -79,18 +108,24 @@ export default function Gallery() {
       formData.append("title", newImage.title || "Untitled");
       formData.append("description", newImage.description || "");
 
-      const res = await api.add(formData);
-      setImages((prev) => [res.data, ...prev]);
+      const res = await api.add(formData); // expects res.data to be created image
+      if (res?.data) {
+        setImages((prev) => [res.data, ...prev]);
+      } else {
+        await fetchImages();
+      }
+
       setNewImage({ file: null, title: "", description: "" });
       setShowForm(false);
-      document.getElementById("fileInput").value = "";
+      const fileInput = document.getElementById("fileInput");
+      if (fileInput) fileInput.value = "";
 
       Toast.fire({
         icon: "success",
         title: "Image uploaded successfully!",
       });
     } catch (err) {
-      console.error(err);
+      console.error("handleAddImage error:", err);
       Swal.fire("Error!", "Failed to upload image.", "error");
     }
   };
@@ -106,14 +141,19 @@ export default function Gallery() {
       confirmButtonText: "Yes, delete it!",
     }).then(async (result) => {
       if (result.isConfirmed) {
-        await api.softDelete(id);
-        fetchImages();
-        fetchDeletedImages();
-        setSelected((prev) => prev.filter((x) => x !== id));
-        Toast.fire({
-          icon: "success",
-          title: "Image moved to Recently Deleted",
-        });
+        try {
+          await api.softDelete(id);
+          await fetchImages();
+          await fetchDeletedImages();
+          setSelected((prev) => prev.filter((x) => x !== id));
+          Toast.fire({
+            icon: "success",
+            title: "Image moved to Recently Deleted",
+          });
+        } catch (err) {
+          console.error("handleDeleteSingle error:", err);
+          Swal.fire("Error", "Failed to delete image.", "error");
+        }
       }
     });
   };
@@ -131,26 +171,36 @@ export default function Gallery() {
       confirmButtonText: "Yes, delete them!",
     }).then(async (result) => {
       if (result.isConfirmed) {
-        await Promise.all(selected.map((id) => api.softDelete(id)));
-        fetchImages();
-        fetchDeletedImages();
-        setSelected([]);
-        Toast.fire({
-          icon: "success",
-          title: "Selected images deleted successfully!",
-        });
+        try {
+          await Promise.all(selected.map((id) => api.softDelete(id)));
+          await fetchImages();
+          await fetchDeletedImages();
+          setSelected([]);
+          Toast.fire({
+            icon: "success",
+            title: "Selected images deleted successfully!",
+          });
+        } catch (err) {
+          console.error("handleDeleteSelected error:", err);
+          Swal.fire("Error", "Failed to delete selected images.", "error");
+        }
       }
     });
   };
 
   const handleRestore = async (id) => {
-    await api.restore(id);
-    fetchImages();
-    fetchDeletedImages();
-    Toast.fire({
-      icon: "success",
-      title: "Image restored successfully!",
-    });
+    try {
+      await api.restore(id);
+      await fetchImages();
+      await fetchDeletedImages();
+      Toast.fire({
+        icon: "success",
+        title: "Image restored successfully!",
+      });
+    } catch (err) {
+      console.error("handleRestore error:", err);
+      Swal.fire("Error", "Failed to restore image.", "error");
+    }
   };
 
   const handlePermanentDelete = async (id) => {
@@ -163,12 +213,17 @@ export default function Gallery() {
       confirmButtonColor: "#d33",
     }).then(async (result) => {
       if (result.isConfirmed) {
-        await api.permanentDelete(id);
-        fetchDeletedImages();
-        Toast.fire({
-          icon: "success",
-          title: "Image permanently removed!",
-        });
+        try {
+          await api.permanentDelete(id);
+          await fetchDeletedImages();
+          Toast.fire({
+            icon: "success",
+            title: "Image permanently removed!",
+          });
+        } catch (err) {
+          console.error("handlePermanentDelete error:", err);
+          Swal.fire("Error", "Failed to permanently delete image.", "error");
+        }
       }
     });
   };
@@ -193,6 +248,7 @@ export default function Gallery() {
             </p>
           </div>
 
+          {/* Admin/staff controls */}
           {isAdminOrStaff && (
             <div className="flex gap-3 mt-4 sm:mt-0">
               {selected.length > 0 && (
@@ -219,46 +275,52 @@ export default function Gallery() {
           )}
         </div>
 
-        {/* Gallery */}
-        <div
-          className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-1 space-y-1"
-          style={{ columnFill: "balance" }}
-        >
-          {images.map((img) => (
-            <div
-              key={img._id}
-              className={`relative overflow-hidden hover:opacity-90 transition cursor-pointer break-inside-avoid ${
-                selected.includes(img._id) ? "ring-4 ring-sky-500" : ""
-              }`}
-              onClick={() => toggleSelect(img._id)}
-            >
-              {/* ✅ Use correct BASE_URL here */}
-              <img
-                src={`${BASE_URL}${img.filePath}`}
-                alt={img.title}
-                className="w-full h-auto object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white px-2 py-1 text-xs">
-                <p className="font-semibold">{img.title}</p>
-                {img.description && (
-                  <p className="opacity-90">{img.description}</p>
+        {/* Gallery grid / loading */}
+        {loading ? (
+          <div className="py-12 text-center text-slate-500">Loading...</div>
+        ) : images.length === 0 ? (
+          <div className="py-12 text-center text-slate-500">
+            No images yet.
+            {isAdminOrStaff && " Click Add Image to upload the first one."}
+          </div>
+        ) : (
+          <div
+            className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-1 space-y-1"
+            style={{ columnFill: "balance" }}
+          >
+            {images.map((img) => (
+              <div
+                key={img._id}
+                className={`relative overflow-hidden hover:opacity-90 transition cursor-pointer break-inside-avoid ${
+                  selected.includes(img._id) ? "ring-4 ring-sky-500" : ""
+                }`}
+                onClick={() => toggleSelect(img._id)}
+              >
+                <img
+                  src={makeFileUrl(img.filePath)}
+                  alt={img.title}
+                  className="w-full h-auto object-cover"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white px-2 py-1 text-xs">
+                  <p className="font-semibold">{img.title}</p>
+                  {img.description && <p className="opacity-90">{img.description}</p>}
+                </div>
+
+                {isAdminOrStaff && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSingle(img._id);
+                    }}
+                    className="absolute top-1 right-1 bg-black/50 hover:bg-red-600 text-white text-xs px-2 py-1 rounded transition"
+                  >
+                    ✖
+                  </button>
                 )}
               </div>
-
-              {isAdminOrStaff && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteSingle(img._id);
-                  }}
-                  className="absolute top-1 right-1 bg-black/50 hover:bg-red-600 text-white text-xs px-2 py-1 rounded transition"
-                >
-                  ✖
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Floating Add Form */}
@@ -271,9 +333,8 @@ export default function Gallery() {
             transition={{ duration: 0.25 }}
             className="fixed bottom-10 right-10 bg-white border border-slate-300 p-5 shadow-2xl rounded-xl w-80 z-50"
           >
-            <h2 className="text-lg font-semibold mb-3 text-slate-800">
-              Add New Image
-            </h2>
+            <h2 className="text-lg font-semibold mb-3 text-slate-800">Add New Image</h2>
+
             <input
               id="fileInput"
               type="file"
@@ -315,7 +376,7 @@ export default function Gallery() {
         )}
       </AnimatePresence>
 
-      {/* Recently Deleted */}
+      {/* Recently Deleted panel */}
       <AnimatePresence>
         {isAdminOrStaff && showDeleted && recentlyDeleted.length > 0 && (
           <motion.div
@@ -328,7 +389,7 @@ export default function Gallery() {
             {recentlyDeleted.map((img) => (
               <div key={img._id} className="relative flex-shrink-0 w-28 h-20">
                 <img
-                  src={`${BASE_URL}${img.filePath}`}
+                  src={makeFileUrl(img.filePath)}
                   alt={img.title}
                   className="w-full h-full object-cover border"
                 />

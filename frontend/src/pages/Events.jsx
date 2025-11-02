@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@clerk/clerk-react";
 import Swal from "sweetalert2";
-import api from "../api/api"; // keep your existing api module
+import api from "../api/api"; // axios instance (baseURL already set)
 
 export default function Events() {
   const { user } = useUser();
@@ -11,10 +11,10 @@ export default function Events() {
 
   const [events, setEvents] = useState([]);
   const [recentlyDeleted, setRecentlyDeleted] = useState([]);
-  const [selected, setSelected] = useState([]); // for multi-delete (admin)
+  const [selected, setSelected] = useState([]);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(null); // holds ev._id of open dropdown
+  const [menuOpen, setMenuOpen] = useState(null);
 
   const [newEvent, setNewEvent] = useState({
     title: "",
@@ -23,28 +23,27 @@ export default function Events() {
     file: null,
   });
 
-  // Fetch events and deleted on mount
+  // 🟢 Fetch events + deleted on mount
   useEffect(() => {
     fetchEvents();
     fetchDeletedEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchEvents = async () => {
     try {
-      const res = await api.get("/");
+      const res = await api.get("/events");
       setEvents(res.data);
     } catch (err) {
-      console.error("fetchEvents error", err);
+      console.error("fetchEvents error:", err);
     }
   };
 
   const fetchDeletedEvents = async () => {
     try {
-      const res = await api.get("/deleted");
+      const res = await api.get("/events/deleted");
       setRecentlyDeleted(res.data);
     } catch (err) {
-      console.error("fetchDeletedEvents error", err);
+      console.error("fetchDeletedEvents error:", err);
     }
   };
 
@@ -59,8 +58,9 @@ export default function Events() {
     setNewEvent((prev) => ({ ...prev, file }));
   };
 
-  // Add event (admin only)
-  const handleAddEvent = async () => {
+  // 🟢 Add event (admin only)
+  const handleAddEvent = async (e) => {
+    e.preventDefault();
     if (!newEvent.title || !newEvent.date) {
       Swal.fire({
         icon: "warning",
@@ -78,7 +78,7 @@ export default function Events() {
       formData.append("date", newEvent.date);
       if (newEvent.file) formData.append("file", newEvent.file);
 
-      const res = await api.post("/", formData, {
+      const res = await api.post("/events", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -95,12 +95,12 @@ export default function Events() {
         showConfirmButton: false,
       });
     } catch (err) {
-      console.error("handleAddEvent error", err);
+      console.error("handleAddEvent error:", err);
       Swal.fire("Error", "Failed to add event.", "error");
     }
   };
 
-  // Confirm wrapper
+  // 🔴 Confirm wrapper
   const confirmDelete = async (message, onConfirm) => {
     const result = await Swal.fire({
       title: "Are you sure?",
@@ -126,20 +126,20 @@ export default function Events() {
     }
   };
 
-  // Soft delete (move to recently deleted)
+  // Soft delete (move to trash)
   const handleDeleteSingle = (id) => {
     confirmDelete("Move this event to trash?", async () => {
-      await api.patch(`/delete/${id}`);
+      await api.patch(`/events/delete/${id}`);
       await fetchEvents();
       await fetchDeletedEvents();
     });
   };
 
-  // Bulk delete selected (admin)
+  // Bulk delete
   const handleDeleteSelected = () => {
     if (selected.length === 0) return;
     confirmDelete(`Delete ${selected.length} selected event(s)?`, async () => {
-      await Promise.all(selected.map((id) => api.patch(`/delete/${id}`)));
+      await Promise.all(selected.map((id) => api.patch(`/events/delete/${id}`)));
       await fetchEvents();
       await fetchDeletedEvents();
       setSelected([]);
@@ -148,7 +148,7 @@ export default function Events() {
 
   // Restore from trash
   const handleRestore = async (id) => {
-    await api.patch(`/restore/${id}`);
+    await api.patch(`/events/restore/${id}`);
     await fetchEvents();
     await fetchDeletedEvents();
 
@@ -162,32 +162,27 @@ export default function Events() {
     });
   };
 
-  // Permanent delete (admin only)
+  // Permanent delete
   const handlePermanentDelete = (id) => {
     confirmDelete(
       "Permanently delete this event? This cannot be undone.",
       async () => {
-        await api.delete(`/${id}`);
+        await api.delete(`/events/${id}`);
         await fetchDeletedEvents();
       }
     );
   };
 
-  // ✅ UPDATED: removed old hardcoded backend URL
+  // File open
   const openFileInNewTab = (filePath) => {
     if (!filePath) return;
-    const fullUrl = `${filePath}`; // relative path works for fullstack deploy
-    window.open(fullUrl, "_blank", "noopener,noreferrer");
+    window.open(filePath, "_blank", "noopener,noreferrer");
   };
 
-  // ✅ UPDATED: removed old backend URL from share logic
+  // Share
   const handleShare = async (ev) => {
-    const link = ev.filePath ? `${ev.filePath}` : window.location.href;
-    const shareData = {
-      title: ev.title,
-      text: ev.description || ev.title,
-      url: link,
-    };
+    const link = ev.filePath ? ev.filePath : window.location.href;
+    const shareData = { title: ev.title, text: ev.description || ev.title, url: link };
 
     try {
       if (navigator.share) {
@@ -210,10 +205,7 @@ export default function Events() {
               return;
             }
           } catch (err) {
-            console.warn(
-              "fetch for native file-share failed, falling back to url:",
-              err
-            );
+            console.warn("native file-share failed, fallback:", err);
           }
         }
         await navigator.share(shareData);
@@ -244,6 +236,13 @@ export default function Events() {
     } finally {
       setMenuOpen(null);
     }
+  };
+
+  // Checkbox toggle
+  const toggleSelect = (id) => {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -293,27 +292,35 @@ export default function Events() {
           </div>
         </div>
 
-        {/* Event Cards */}
+        {/* Event Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {events.length === 0 && (
             <div className="col-span-full text-center text-slate-500 py-8">
               No events yet —{" "}
-              {isAdmin
-                ? 'click “Add Event” to create one.'
-                : "check back later."}
+              {isAdmin ? 'click “Add Event” to create one.' : "check back later."}
             </div>
           )}
 
           {events.map((ev) => {
             const isImage = ev.fileType === "image";
-            const isPdf = ev.fileType === "application" || ev.fileType === "pdf";
-            const fileUrl = ev.filePath ? `${ev.filePath}` : ""; // ✅ UPDATED here too
+            const isPdf =
+              ev.fileType === "application" || ev.fileType === "pdf";
+            const fileUrl = ev.filePath ? ev.filePath : "";
 
             return (
               <div
                 key={ev._id}
                 className={`relative bg-white border rounded-xl shadow hover:shadow-lg transition overflow-hidden`}
               >
+                {isAdmin && (
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(ev._id)}
+                    onChange={() => toggleSelect(ev._id)}
+                    className="absolute top-2 left-2 z-10 accent-sky-600 w-4 h-4"
+                  />
+                )}
+
                 <div
                   className="h-40 bg-gray-100 relative cursor-pointer"
                   onClick={() => openFileInNewTab(ev.filePath)}
@@ -340,7 +347,6 @@ export default function Events() {
                         e.stopPropagation();
                         setMenuOpen(menuOpen === ev._id ? null : ev._id);
                       }}
-                      aria-label="Open options"
                       className="p-1 rounded-full hover:bg-slate-200"
                       type="button"
                     >
@@ -394,7 +400,7 @@ export default function Events() {
         </div>
       </div>
 
-      {/* Add Form (Admin Only) */}
+      {/* Add Form */}
       <AnimatePresence>
         {showForm && isAdmin && (
           <motion.div
@@ -408,56 +414,57 @@ export default function Events() {
               Add New Event
             </h2>
 
-            <input
-              type="text"
-              name="title"
-              value={newEvent.title}
-              onChange={handleInputChange}
-              placeholder="Title"
-              className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
-            />
-            <input
-              type="date"
-              name="date"
-              value={newEvent.date}
-              onChange={handleInputChange}
-              className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
-            />
-            <textarea
-              name="description"
-              value={newEvent.description}
-              onChange={handleInputChange}
-              placeholder="Description"
-              className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
-            />
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              onChange={handleFileChange}
-              className="w-full border border-slate-300 px-2 py-1 mb-3 rounded"
-            />
+            <form onSubmit={handleAddEvent}>
+              <input
+                type="text"
+                name="title"
+                value={newEvent.title}
+                onChange={handleInputChange}
+                placeholder="Title"
+                className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
+              />
+              <input
+                type="date"
+                name="date"
+                value={newEvent.date}
+                onChange={handleInputChange}
+                className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
+              />
+              <textarea
+                name="description"
+                value={newEvent.description}
+                onChange={handleInputChange}
+                placeholder="Description"
+                className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
+              />
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleFileChange}
+                className="w-full border border-slate-300 px-2 py-1 mb-3 rounded"
+              />
 
-            <div className="flex justify-between">
-              <button
-                onClick={handleAddEvent}
-                className="bg-sky-600 text-white px-3 py-1 rounded hover:bg-sky-700"
-                type="button"
-              >
-                Upload
-              </button>
-              <button
-                onClick={() => setShowForm(false)}
-                className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
-                type="button"
-              >
-                Cancel
-              </button>
-            </div>
+              <div className="flex justify-between">
+                <button
+                  type="submit"
+                  className="bg-sky-600 text-white px-3 py-1 rounded hover:bg-sky-700"
+                >
+                  Upload
+                </button>
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Recently Deleted (Admin only) */}
+      {/* Recently Deleted */}
       <AnimatePresence>
         {isAdmin && showDeleted && recentlyDeleted.length > 0 && (
           <motion.div
@@ -474,7 +481,7 @@ export default function Events() {
               >
                 {ev.filePath && ev.fileType === "image" ? (
                   <img
-                    src={`${ev.filePath}`} // ✅ UPDATED
+                    src={`${ev.filePath}`}
                     alt={ev.title}
                     className="w-full h-full object-cover border"
                   />
