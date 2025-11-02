@@ -1,6 +1,6 @@
 // ✅ frontend/src/api/api.js
 import axios from "axios";
-import { getToken } from "@clerk/clerk-react";
+import { clerkClient } from "@clerk/clerk-js"; // ✅ Import correct client lib for token handling
 
 // CRA supports only REACT_APP_* env vars
 const BASE_URL =
@@ -11,15 +11,15 @@ const api = axios.create({
   baseURL: BASE_URL,
 });
 
-// ✅ Automatically attach Clerk session token for protected routes
+// ✅ Try to attach Clerk token automatically (safe fallback for v5+)
 api.interceptors.request.use(async (config) => {
   try {
-    const token = await getToken({ template: "default" }); // Get Clerk session token
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const session = await window.Clerk?.session?.getToken();
+    if (session) {
+      config.headers.Authorization = `Bearer ${session}`;
     }
   } catch (err) {
-    console.warn("No Clerk token found:", err);
+    console.warn("No Clerk session token found:", err);
   }
   return config;
 });
