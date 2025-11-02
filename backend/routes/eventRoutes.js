@@ -3,7 +3,8 @@ import multer from "multer";
 import path from "path";
 import Event from "../models/Event.js";
 // import { requireAuth, requireRole } from "../middleware/auth.js";
-import { requireClerkAuth as requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+
 
 
 const router = express.Router();
