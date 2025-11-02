@@ -1,8 +1,8 @@
 // backend/middleware/auth.js
-import { ClerkExpressRequireAuth, clerkClient } from "@clerk/express";
+import { requireAuth, clerkClient } from "@clerk/express";
 
-// ✅ Authentication middleware
-export const requireAuth = ClerkExpressRequireAuth({
+// ✅ Middleware to require authentication
+export const requireClerkAuth = requireAuth({
   onError: (err, req, res) => {
     console.error("Auth error:", err);
     res.status(401).json({ message: "Unauthorized" });
