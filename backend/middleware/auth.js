@@ -1,15 +1,15 @@
 // backend/middleware/auth.js
-import { requireAuth, clerkClient } from "@clerk/express";
+import { requireAuth as ClerkRequireAuth, clerkClient } from "@clerk/express";
 
-// ✅ Middleware to require authentication
-export const requireClerkAuth = requireAuth({
+// ✅ Middleware for authentication
+export const requireAuth = ClerkRequireAuth({
   onError: (err, req, res) => {
     console.error("Auth error:", err);
     res.status(401).json({ message: "Unauthorized" });
   },
 });
 
-// ✅ Role-based guard
+// ✅ Role-based guard (for admins, etc.)
 export const requireRole = (roles = []) => {
   return async (req, res, next) => {
     try {
