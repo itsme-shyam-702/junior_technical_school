@@ -19,6 +19,12 @@ const Toast = Swal.mixin({
   },
 });
 
+// ✅ CHANGE: Dynamic backend base URL for Render deployment
+// This ensures your app automatically uses the correct API base
+// whether running locally or on Render (like in the Events page)
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "https://junior-technical-school-backend.onrender.com";
+
 export default function Gallery() {
   const { user } = useUser(); // 👈 Clerk user
   const [images, setImages] = useState([]);
@@ -227,8 +233,9 @@ export default function Gallery() {
               }`}
               onClick={() => toggleSelect(img._id)}
             >
+              {/* ✅ CHANGE: Dynamic BASE_URL used here */}
               <img
-                src={`https://jr-school-67nt.onrender.com${img.filePath}`}
+                src={`${BASE_URL}${img.filePath}`}
                 alt={img.title}
                 className="w-full h-auto object-cover"
               />
@@ -322,8 +329,9 @@ export default function Gallery() {
           >
             {recentlyDeleted.map((img) => (
               <div key={img._id} className="relative flex-shrink-0 w-28 h-20">
+                {/* ✅ CHANGE: Dynamic BASE_URL here also */}
                 <img
-                  src={`https://jr-school-67nt.onrender.com${img.filePath}`}
+                  src={`${BASE_URL}${img.filePath}`}
                   alt={img.title}
                   className="w-full h-full object-cover border"
                 />

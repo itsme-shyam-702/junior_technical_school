@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // 🔐 Base API URL
-const API_URL = "https://jr-school-67nt.onrender.com/api/admission";
+const API_URL = "/api/admission";
 
 // ✅ Axios instance
 const api = axios.create({

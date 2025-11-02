@@ -1,7 +1,7 @@
 // frontend/src/api/events.js
 import axios from "axios";
 
-const API_URL = "https://jr-school-67nt.onrender.com/api/events"; 
+const API_URL = "/api/events"; 
 
 const eventsAPI = {
   // ✅ Active events

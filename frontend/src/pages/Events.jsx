@@ -100,11 +100,6 @@ export default function Events() {
     }
   };
 
-  // // Multi-select toggle (used by admin for bulk delete)
-  // const toggleSelect = (id) => {
-  //   setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  // };
-
   // Confirm wrapper
   const confirmDelete = async (message, onConfirm) => {
     const result = await Swal.fire({
@@ -178,16 +173,16 @@ export default function Events() {
     );
   };
 
-  // Open any file in new tab
+  // ✅ UPDATED: removed old hardcoded backend URL
   const openFileInNewTab = (filePath) => {
     if (!filePath) return;
-    const fullUrl = `https://jr-school-67nt.onrender.com${filePath}`;
+    const fullUrl = `${filePath}`; // relative path works for fullstack deploy
     window.open(fullUrl, "_blank", "noopener,noreferrer");
   };
 
-  // Share (native Web Share if available; else copy link)
+  // ✅ UPDATED: removed old backend URL from share logic
   const handleShare = async (ev) => {
-    const link = ev.filePath ? `https://jr-school-67nt.onrender.com${ev.filePath}` : window.location.href;
+    const link = ev.filePath ? `${ev.filePath}` : window.location.href;
     const shareData = {
       title: ev.title,
       text: ev.description || ev.title,
@@ -196,25 +191,33 @@ export default function Events() {
 
     try {
       if (navigator.share) {
-        // Try to download file and share as file if browser supports files in share
         if (ev.filePath) {
           try {
             const response = await fetch(link);
             const blob = await response.blob();
-            const file = new File([blob], (ev.filePath.split("/").pop() || ev.title), { type: blob.type });
+            const file = new File(
+              [blob],
+              ev.filePath.split("/").pop() || ev.title,
+              { type: blob.type }
+            );
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: ev.title, text: ev.description || ev.title });
+              await navigator.share({
+                files: [file],
+                title: ev.title,
+                text: ev.description || ev.title,
+              });
               setMenuOpen(null);
               return;
             }
           } catch (err) {
-            // fetching file failed — fallback to share URL
-            console.warn("fetch for native file-share failed, falling back to url:", err);
+            console.warn(
+              "fetch for native file-share failed, falling back to url:",
+              err
+            );
           }
         }
         await navigator.share(shareData);
       } else {
-        // fallback: copy link
         await navigator.clipboard.writeText(link);
         Swal.fire({
           icon: "info",
@@ -226,7 +229,6 @@ export default function Events() {
       }
     } catch (err) {
       console.error("handleShare:", err);
-      // final fallback: copy link and alert
       try {
         await navigator.clipboard.writeText(link);
         Swal.fire({
@@ -244,32 +246,18 @@ export default function Events() {
     }
   };
 
-  // Whatsapp share (opens new tab with prefilled message)
-  // const handleWhatsAppShare = (ev) => {
-  //   const link = ev.filePath ? `https://jr-school-67nt.onrender.com${ev.filePath}` : "";
-  //   const text = encodeURIComponent(`${ev.title}\n\n${ev.description || ""}\n\n${link}`);
-  //   const waUrl = `https://wa.me/?text=${text}`;
-  //   window.open(waUrl, "_blank", "noopener,noreferrer");
-  //   setMenuOpen(null);
-  // };
-
-  // Email share (mailto)
-  // const handleEmailShare = (ev) => {
-  //   const link = ev.filePath ? `https://jr-school-67nt.onrender.com${ev.filePath}` : "";
-  //   const subject = encodeURIComponent(ev.title || "Event");
-  //   const body = encodeURIComponent(`${ev.description || ""}\n\n${link}`);
-  //   window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  //   setMenuOpen(null);
-  // };
-
   return (
     <section className="bg-white text-gray-800 min-h-screen py-10 px-4 relative">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-semibold text-slate-800 mb-1">School Events & Circulars</h1>
-            <p className="text-slate-500 text-sm">Add, view, and manage all school events easily.</p>
+            <h1 className="text-3xl font-semibold text-slate-800 mb-1">
+              School Events & Circulars
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Add, view, and manage all school events easily.
+            </p>
           </div>
 
           <div className="flex gap-3 mt-4 sm:mt-0 items-center">
@@ -284,13 +272,21 @@ export default function Events() {
             )}
 
             {isAdmin && (
-              <button onClick={() => setShowForm(true)} className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-md shadow transition" type="button">
+              <button
+                onClick={() => setShowForm(true)}
+                className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-md shadow transition"
+                type="button"
+              >
                 Add Event
               </button>
             )}
 
             {isAdmin && (
-              <button onClick={() => setShowDeleted((s) => !s)} className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md shadow transition" type="button">
+              <button
+                onClick={() => setShowDeleted((s) => !s)}
+                className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md shadow transition"
+                type="button"
+              >
                 {showDeleted ? "Hide" : "Recently Deleted"}
               </button>
             )}
@@ -300,48 +296,44 @@ export default function Events() {
         {/* Event Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {events.length === 0 && (
-            <div className="col-span-full text-center text-slate-500 py-8">No events yet — {isAdmin ? 'click “Add Event” to create one.' : 'check back later.'}</div>
+            <div className="col-span-full text-center text-slate-500 py-8">
+              No events yet —{" "}
+              {isAdmin
+                ? 'click “Add Event” to create one.'
+                : "check back later."}
+            </div>
           )}
 
           {events.map((ev) => {
             const isImage = ev.fileType === "image";
             const isPdf = ev.fileType === "application" || ev.fileType === "pdf";
-            const fileUrl = ev.filePath ? `https://jr-school-67nt.onrender.com${ev.filePath}` : "";
+            const fileUrl = ev.filePath ? `${ev.filePath}` : ""; // ✅ UPDATED here too
 
             return (
               <div
                 key={ev._id}
                 className={`relative bg-white border rounded-xl shadow hover:shadow-lg transition overflow-hidden`}
               >
-                {/* Select overlay (admin only)
-                {isAdmin && (
-                  <div className="absolute top-2 left-2 z-20">
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(ev._id)}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        toggleSelect(ev._id);
-                      }}
-                      aria-label="Select event"
-                    />
-                  </div>
-                )} */}
-
-                {/* Clickable preview area */}
                 <div
                   className="h-40 bg-gray-100 relative cursor-pointer"
                   onClick={() => openFileInNewTab(ev.filePath)}
                 >
                   {isImage && ev.filePath ? (
-                    <img src={fileUrl} alt={ev.title} className="w-full h-full object-cover" />
+                    <img
+                      src={fileUrl}
+                      alt={ev.title}
+                      className="w-full h-full object-cover"
+                    />
                   ) : isPdf && ev.filePath ? (
-                    <div className="flex items-center justify-center w-full h-full bg-gray-200 text-xs text-slate-600">PDF / Document</div>
+                    <div className="flex items-center justify-center w-full h-full bg-gray-200 text-xs text-slate-600">
+                      PDF / Document
+                    </div>
                   ) : (
-                    <div className="flex items-center justify-center w-full h-full text-slate-400 text-sm">No file</div>
+                    <div className="flex items-center justify-center w-full h-full text-slate-400 text-sm">
+                      No file
+                    </div>
                   )}
 
-                  {/* Three-dot button (no white patch behind it) */}
                   <div className="absolute top-2 right-2">
                     <button
                       onClick={(e) => {
@@ -355,21 +347,18 @@ export default function Events() {
                       ⋮
                     </button>
 
-                    {/* Dropdown */}
                     {menuOpen === ev._id && (
                       <div
                         onClick={(e) => e.stopPropagation()}
                         className="absolute right-0 mt-2 w-44 bg-white border rounded-md shadow-md text-sm z-50"
                       >
-                        <button onClick={() => handleShare(ev)} className="w-full text-left px-3 py-2 hover:bg-gray-100" type="button">
+                        <button
+                          onClick={() => handleShare(ev)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                          type="button"
+                        >
                           🔗 Share
                         </button>
-                        {/* <button onClick={() => handleWhatsAppShare(ev)} className="w-full text-left px-3 py-2 hover:bg-gray-100" type="button">
-                          💬 WhatsApp
-                        </button>
-                        <button onClick={() => handleEmailShare(ev)} className="w-full text-left px-3 py-2 hover:bg-gray-100" type="button">
-                          ✉️ Email
-                        </button> */}
 
                         {isAdmin && (
                           <button
@@ -389,9 +378,15 @@ export default function Events() {
                 </div>
 
                 <div className="p-3">
-                  <h3 className="text-sm font-semibold text-slate-900 truncate mb-1">{ev.title}</h3>
-                  <p className="text-xs text-slate-500 mb-1">{new Date(ev.date).toDateString()}</p>
-                  <p className="text-xs text-slate-600 line-clamp-2 mb-1">{ev.description || "—"}</p>
+                  <h3 className="text-sm font-semibold text-slate-900 truncate mb-1">
+                    {ev.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-1">
+                    {new Date(ev.date).toDateString()}
+                  </p>
+                  <p className="text-xs text-slate-600 line-clamp-2 mb-1">
+                    {ev.description || "—"}
+                  </p>
                 </div>
               </div>
             );
@@ -402,17 +397,61 @@ export default function Events() {
       {/* Add Form (Admin Only) */}
       <AnimatePresence>
         {showForm && isAdmin && (
-          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} transition={{ duration: 0.25 }} className="fixed bottom-10 right-10 bg-white border border-slate-300 p-5 shadow-2xl rounded-xl w-80 z-50">
-            <h2 className="text-lg font-semibold mb-3 text-slate-800">Add New Event</h2>
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ duration: 0.25 }}
+            className="fixed bottom-10 right-10 bg-white border border-slate-300 p-5 shadow-2xl rounded-xl w-80 z-50"
+          >
+            <h2 className="text-lg font-semibold mb-3 text-slate-800">
+              Add New Event
+            </h2>
 
-            <input type="text" name="title" value={newEvent.title} onChange={handleInputChange} placeholder="Title" className="w-full border border-slate-300 px-2 py-1 mb-2 rounded" />
-            <input type="date" name="date" value={newEvent.date} onChange={handleInputChange} className="w-full border border-slate-300 px-2 py-1 mb-2 rounded" />
-            <textarea name="description" value={newEvent.description} onChange={handleInputChange} placeholder="Description" className="w-full border border-slate-300 px-2 py-1 mb-2 rounded" />
-            <input type="file" accept="image/*,.pdf" onChange={handleFileChange} className="w-full border border-slate-300 px-2 py-1 mb-3 rounded" />
+            <input
+              type="text"
+              name="title"
+              value={newEvent.title}
+              onChange={handleInputChange}
+              placeholder="Title"
+              className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
+            />
+            <input
+              type="date"
+              name="date"
+              value={newEvent.date}
+              onChange={handleInputChange}
+              className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
+            />
+            <textarea
+              name="description"
+              value={newEvent.description}
+              onChange={handleInputChange}
+              placeholder="Description"
+              className="w-full border border-slate-300 px-2 py-1 mb-2 rounded"
+            />
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleFileChange}
+              className="w-full border border-slate-300 px-2 py-1 mb-3 rounded"
+            />
 
             <div className="flex justify-between">
-              <button onClick={handleAddEvent} className="bg-sky-600 text-white px-3 py-1 rounded hover:bg-sky-700" type="button">Upload</button>
-              <button onClick={() => setShowForm(false)} className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100" type="button">Cancel</button>
+              <button
+                onClick={handleAddEvent}
+                className="bg-sky-600 text-white px-3 py-1 rounded hover:bg-sky-700"
+                type="button"
+              >
+                Upload
+              </button>
+              <button
+                onClick={() => setShowForm(false)}
+                className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-100"
+                type="button"
+              >
+                Cancel
+              </button>
             </div>
           </motion.div>
         )}
@@ -421,17 +460,42 @@ export default function Events() {
       {/* Recently Deleted (Admin only) */}
       <AnimatePresence>
         {isAdmin && showDeleted && recentlyDeleted.length > 0 && (
-          <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} transition={{ duration: 0.3 }} className="fixed bottom-0 left-0 right-0 bg-slate-100 border-t border-slate-300 py-3 px-4 shadow-lg overflow-x-auto flex gap-3">
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed bottom-0 left-0 right-0 bg-slate-100 border-t border-slate-300 py-3 px-4 shadow-lg overflow-x-auto flex gap-3"
+          >
             {recentlyDeleted.map((ev) => (
-              <div key={ev._id} className="relative flex-shrink-0 w-28 h-20">
+              <div
+                key={ev._id}
+                className="relative flex-shrink-0 w-28 h-20"
+              >
                 {ev.filePath && ev.fileType === "image" ? (
-                  <img src={`https://jr-school-67nt.onrender.com${ev.filePath}`} alt={ev.title} className="w-full h-full object-cover border" />
+                  <img
+                    src={`${ev.filePath}`} // ✅ UPDATED
+                    alt={ev.title}
+                    className="w-full h-full object-cover border"
+                  />
                 ) : (
-                  <div className="w-full h-full bg-slate-200 flex items-center justify-center text-xs text-slate-600">PDF / No File</div>
+                  <div className="w-full h-full bg-slate-200 flex items-center justify-center text-xs text-slate-600">
+                    PDF / No File
+                  </div>
                 )}
                 <div className="absolute inset-0 bg-black/50 flex flex-col justify-center items-center opacity-0 hover:opacity-100 transition text-xs text-white">
-                  <button onClick={() => handleRestore(ev._id)} className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded mb-1">♻ Restore</button>
-                  <button onClick={() => handlePermanentDelete(ev._id)} className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded">🗑 Delete</button>
+                  <button
+                    onClick={() => handleRestore(ev._id)}
+                    className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded mb-1"
+                  >
+                    ♻ Restore
+                  </button>
+                  <button
+                    onClick={() => handlePermanentDelete(ev._id)}
+                    className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded"
+                  >
+                    🗑 Delete
+                  </button>
                 </div>
               </div>
             ))}
